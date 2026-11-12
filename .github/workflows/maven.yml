@@ -1,3 +1,4 @@
+
 name: Java CI/CD with Maven and Docker
 
 on:
@@ -7,8 +8,11 @@ on:
     branches: [ "main" ]
 
 jobs:
+
+  # JOB 1: BUILD AND TEST USING MAVEN
   build-and-test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -23,39 +27,45 @@ jobs:
       - name: Build and Test with Maven
         run: mvn clean package -DskipTests=false
 
-      # Upload the built jar artifact so the next job can pick it up from the Maven target directory
+      # Upload Maven generated JAR
       - name: Upload Maven Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-jar
           path: target/*.jar
+          if-no-files-found: error
 
+  # JOB 2: BUILD AND PUSH TO DOCKER HUB
   docker-publish:
     needs: build-and-test
     runs-on: ubuntu-latest
-    # Only push to Docker Hub on pushes to main, not on PRs
+
+    # Only push to Docker Hub on pushes to main
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Download the jar file produced by the previous job into the target/ directory
+      # Download JAR from Maven job
       - name: Download Maven Artifact
         uses: actions/download-artifact@v4
         with:
           name: app-jar
           path: target/
 
-      - name: Log in to Docker Hub
+      # Login to Docker Hub
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Build and Push Docker Image
       - name: Build and Push Docker Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile
           push: true
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/your-repository-name:latest
+          tags: manasanr10/shopping-cart:latest
